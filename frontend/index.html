@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CSC Fiscal</title>
+<link rel="stylesheet" href="/assets/css/estilo.css">
+</head>
+<body>
+<div id="app">
+  <aside id="sidebar">
+    <div class="logo">CSC Fiscal</div>
+    <nav>
+      <a href="#" data-rota="dashboard" class="ativo"><span class="ico">&#9679;</span> Dashboard</a>
+      <a href="#" data-rota="entrada"><span class="ico">&#9654;</span> Entrada</a>
+      <a href="#" data-rota="notas"><span class="ico">&#9776;</span> Notas</a>
+      <a href="#" data-rota="pendencias"><span class="ico">&#9888;</span> Pendências</a>
+      <a href="#" data-rota="assistente"><span class="ico">&#9728;</span> Assistente IA</a>
+      <a href="#" data-rota="relatorios"><span class="ico">&#128200;</span> Relatórios</a>
+      <a href="#" data-rota="configuracoes"><span class="ico">&#9881;</span> Configurações</a>
+    </nav>
+  </aside>
+  <main id="content">
+    <header id="topbar">
+      <h1 id="page-title">Dashboard</h1>
+      <div class="header-actions">
+        <span id="llm-status" class="status-indicator">IA: verificando...</span>
+      </div>
+    </header>
+    <div id="page-content"></div>
+  </main>
+</div>
+<script src="/assets/js/app.js"></script>
+</body>
+</html>

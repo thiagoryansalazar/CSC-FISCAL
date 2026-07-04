@@ -1,0 +1,15 @@
+﻿__pycache__/
+*.py[cod]
+*.class
+*.so
+.env
+storage/database.sqlite
+storage/chroma_db/
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+.Python
+.DS_Store
