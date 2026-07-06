@@ -19,6 +19,7 @@ class NotaFiscal(Base):
     caminho_xml = Column(String(500), nullable=True)
     caminho_pdf = Column(String(500), nullable=True)
     caminho_xml_gerado = Column(String(500), nullable=True)
-    status = Column(String(20), default='NAO_PROCESSADA')
+    status = Column(String(20), default='ENTRADA')
+    duplicada_de = Column(Integer, nullable=True)
     observacoes = Column(Text, nullable=True)
     data_entrada = Column(DateTime, server_default=func.now())

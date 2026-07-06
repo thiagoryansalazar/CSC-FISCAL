@@ -7,9 +7,16 @@ from app.services.comparador_service import ComparadorService
 router = APIRouter(prefix='/api/dashboard', tags=['dashboard'])
 
 @router.get('')
-async def dashboard(db: AsyncSession = Depends(get_db)):
+async def dashboard(
+    data_inicio: str = None,
+    data_fim: str = None,
+    status: str = None,
+    fornecedor: str = None,
+    cnpj: str = None,
+    db: AsyncSession = Depends(get_db),
+):
     nota_svc = NotaService(db)
-    dados = await nota_svc.obter_dashboard()
+    dados = await nota_svc.obter_dashboard(data_inicio, data_fim, status, fornecedor, cnpj)
     comp_svc = ComparadorService(db)
     comp_resumo = await comp_svc.resumo()
     dados['extracoes'] = comp_resumo

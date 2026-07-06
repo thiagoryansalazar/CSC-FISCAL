@@ -1,19 +1,22 @@
 ﻿import hashlib
+import re
 from typing import Optional
 from lxml import etree
 from app.extractors import normalizar_valor, normalizar_data, extrair_chave_do_texto
 
+def _strip_ns(tree):
+    for elem in tree.iter():
+        elem.tag = etree.QName(elem).localname
+    return tree
+
 def processar_xml(caminho: str) -> dict:
     try:
         tree = etree.parse(caminho)
-        root = tree.getroot()
+        root = _strip_ns(tree).getroot()
     except Exception as e:
         return {'erro': f'XML invalido: {e}'}
 
-    ns = {'nfe': 'http://www.portalfiscal.inf.br/nfe'}
-    infNFe = root.find('.//nfe:infNFe', ns)
-    if infNFe is None:
-        infNFe = root.find('.//infNFe')
+    infNFe = root.find('.//infNFe')
     if infNFe is None:
         return {'erro': 'Estrutura NF-e nao encontrada'}
 
@@ -27,13 +30,13 @@ def processar_xml(caminho: str) -> dict:
 
     dados = {
         'chave_acesso': chave or None,
-        'numero': extrair_texto(infNFe, './/ide/nNF'),
-        'serie': extrair_texto(infNFe, './/ide/serie'),
+        'numero': extrair_texto(infNFe, './/nNF'),
+        'serie': extrair_texto(infNFe, './/serie'),
         'cnpj_emitente': limpar_digitos(extrair_texto(emit, 'CNPJ')),
         'cpf_emitente': limpar_digitos(extrair_texto(emit, 'CPF')),
         'nome_fornecedor': extrair_texto(emit, 'xNome'),
-        'data_emissao': normalizar_data(extrair_texto(infNFe, './/ide/dhEmi') or extrair_texto(infNFe, './/ide/dEmi') or ''),
-        'valor_total': normalizar_valor(infNFe.findtext('.//total/ICMSTot/vNF', '0')),
+        'data_emissao': normalizar_data(extrair_texto(infNFe, './/dhEmi') or extrair_texto(infNFe, './/dEmi') or ''),
+        'valor_total': normalizar_valor(infNFe.findtext('.//vNF', '0')),
         'tipo_documento': 'NF-e',
         'origem': 'xml',
         'itens': [],
@@ -70,7 +73,4 @@ def extrair_texto(element, path: str) -> str:
     return (el.text or '').strip() if el is not None else ''
 
 def limpar_digitos(valor: str) -> str:
-    import re
     return re.sub(r'\D', '', valor) if valor else ''
-
-import re

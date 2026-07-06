@@ -1,20 +1,28 @@
 import os
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from app.database import init_db
+from app.logging_config import configurar_logging
 from app.routers import notas, upload, dashboard, historico, assistente
+
+logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    configurar_logging()
+    logger.info('Iniciando CSC Fiscal...')
     os.makedirs('storage', exist_ok=True)
     os.makedirs('storage/input', exist_ok=True)
     os.makedirs('storage/xml', exist_ok=True)
     os.makedirs('storage/chroma_db', exist_ok=True)
     await init_db()
+    logger.info('Banco de dados inicializado')
     yield
+    logger.info('Encerrando CSC Fiscal...')
 
 app = FastAPI(title='CSC Fiscal', version='0.1.0', lifespan=lifespan)
 

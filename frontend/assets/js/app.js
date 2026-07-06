@@ -132,12 +132,12 @@ async function notas() {
       <input type="text" id="f-search" placeholder="Buscar por fornecedor, número ou chave..." onkeyup="carregarNotas()">
       <select id="f-status" onchange="carregarNotas()">
         <option value="">Todos os status</option>
-        <option value="NAO_PROCESSADA">Não Processada</option>
+        <option value="ENTRADA">Entrada</option>
+        <option value="EM_PROCESSAMENTO">Em Processamento</option>
+        <option value="EM_ESPERA">Em Espera</option>
         <option value="PROCESSADA">Processada</option>
-        <option value="PENDENTE">Pendente</option>
-        <option value="ERRO">Erro</option>
-        <option value="CONFERIDA">Conferida</option>
-        <option value="FINALIZADA">Finalizada</option>
+        <option value="ERRO">Com Erro</option>
+        <option value="DUPLICADA">Duplicada</option>
       </select>
     </div>
     <table>
@@ -263,8 +263,10 @@ async function detalhes(notaId) {
       <div style="display:flex;gap:1rem;align-items:center;margin-bottom:1.5rem">
         <span class="tag tag-${statusClass(nota.status)}" style="font-size:1rem">${nota.status}</span>
         <button class="btn btn-sm" onclick="abrirModal('status', ${nota.id})">Alterar Status</button>
+        <button class="btn btn-sm btn-success" onclick="gerarXml(${nota.id})">Gerar XML</button>
         <button class="btn btn-sm btn-danger" onclick="confirmarDelete(${nota.id})">Excluir</button>
       </div>
+      ${nota.duplicada_de ? `<div class="tag tag-danger">Duplicata da nota #${nota.duplicada_de}</div>` : ''}
       <div class="detalhes-grid">
         <div class="campo"><div class="rotulo">Número</div><div class="valor">${nota.numero || '-'}</div></div>
         <div class="campo"><div class="rotulo">Série</div><div class="valor">${nota.serie || '-'}</div></div>
@@ -302,6 +304,9 @@ async function detalhes(notaId) {
       </div>
       <div id="tab-hist"><p>Carregando histórico...</p></div>
       <div id="tab-comp" style="display:none"><p>Carregando comparação...</p></div>
+      <h3 style="margin-top:1.5rem">Observações</h3>
+      <textarea id="obs-textarea" style="width:100%;min-height:80px;padding:0.5rem;border:1px solid var(--border);border-radius:6px;font-family:inherit">${escapeHtml(nota.observacoes || '')}</textarea>
+      <button class="btn btn-sm" style="margin-top:0.5rem" onclick="salvarObservacoes(${nota.id})">Salvar Observações</button>
     `;
 
     page('Nota ' + (nota.numero || '#' + nota.id), html);
@@ -367,6 +372,7 @@ function relatorios() {
     <div style="display:flex;gap:1rem">
       <button class="btn" onclick="exportar('json')">Exportar JSON</button>
       <button class="btn btn-success" onclick="exportar('csv')">Exportar CSV</button>
+      <button class="btn btn-warning" onclick="exportar('xlsx')">Exportar XLSX</button>
     </div>
     <div id="export-status" style="margin-top:0.5rem"></div>
   `);
@@ -381,19 +387,11 @@ function relatorios() {
 async function exportar(formato) {
   const status = $('#export-status');
   try {
-    const r = await fetch(API + '/notas?limit=1000');
-    const notas = await r.json();
-    if (formato === 'json') {
-      const blob = new Blob([JSON.stringify(notas, null, 2)], { type: 'application/json' });
-      downloadBlob(blob, 'notas_fiscais.json');
-    } else if (formato === 'csv') {
-      const cab = 'id,numero,serie,fornecedor,cnpj,valor,status,data_emissao\n';
-      const linhas = notas.map(n =>
-        [n.id, n.numero, n.serie, `"${n.nome_fornecedor || ''}"`, n.cnpj_emitente, n.valor_total, n.status, n.data_emissao].join(',')
-      ).join('\n');
-      const blob = new Blob(['\ufeff' + cab + linhas], { type: 'text/csv;charset=utf-8;' });
-      downloadBlob(blob, 'notas_fiscais.csv');
-    }
+    const r = await fetch(API + '/notas/export?formato=' + formato);
+    if (!r.ok) { status.innerHTML = '<span class="tag tag-danger">Erro ao exportar</span>'; return; }
+    const blob = await r.blob();
+    const ext = formato === 'xlsx' ? 'xlsx' : formato;
+    downloadBlob(blob, 'notas_fiscais.' + ext);
     status.innerHTML = '<span class="tag tag-success">Exportado com sucesso</span>';
     setTimeout(() => status.innerHTML = '', 3000);
   } catch {
@@ -464,7 +462,7 @@ function abrirModal(tipo, notaId) {
   overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
 
   if (tipo === 'status') {
-    const statusList = ['NAO_PROCESSADA', 'PROCESSADA', 'PENDENTE', 'ERRO', 'CONFERIDA', 'FINALIZADA'];
+    const statusList = ['ENTRADA', 'EM_PROCESSAMENTO', 'EM_ESPERA', 'PROCESSADA', 'ERRO', 'DUPLICADA'];
     overlay.innerHTML = `<div class="modal" onclick="event.stopPropagation()">
       <h2>Alterar Status</h2>
       <select id="modal-status">
@@ -548,14 +546,39 @@ async function confirmarDelete(notaId) {
   } catch { alert('Erro ao excluir'); }
 }
 
+async function gerarXml(notaId) {
+  try {
+    const r = await fetch(API + '/notas/' + notaId + '/gerar-xml', { method: 'POST' });
+    if (!r.ok) { const d = await r.json(); alert('Erro: ' + (d.erro || r.statusText)); return; }
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'nota_' + notaId + '.xml'; a.click();
+    URL.revokeObjectURL(url);
+  } catch (e) { alert('Erro ao gerar XML: ' + e.message); }
+}
+
+async function salvarObservacoes(notaId) {
+  const obs = $('#obs-textarea')?.value || '';
+  try {
+    const r = await fetch(API + '/notas/' + notaId, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ observacoes: obs }),
+    });
+    if (!r.ok) { alert('Erro ao salvar'); return; }
+    alert('Observações salvas!');
+  } catch (e) { alert('Erro: ' + e.message); }
+}
+
 function statusClass(s) {
   const map = {
-    'NAO_PROCESSADA': 'secondary',
-    'PROCESSADA': 'info',
-    'PENDENTE': 'warning',
+    'ENTRADA': 'info',
+    'EM_PROCESSAMENTO': 'warning',
+    'EM_ESPERA': 'secondary',
+    'PROCESSADA': 'success',
     'ERRO': 'danger',
-    'CONFERIDA': 'success',
-    'FINALIZADA': 'success',
+    'DUPLICADA': 'danger',
   };
   return map[s] || 'secondary';
 }

@@ -16,6 +16,7 @@ class NotaFiscalCreate(BaseModel):
     origem: Optional[str] = None
     caminho_xml: Optional[str] = None
     caminho_pdf: Optional[str] = None
+    duplicada_de: Optional[int] = None
     observacoes: Optional[str] = None
 
 class NotaFiscalUpdate(BaseModel):
@@ -30,6 +31,7 @@ class NotaFiscalUpdate(BaseModel):
     tipo_documento: Optional[str] = None
     qtd_itens: Optional[int] = None
     observacoes: Optional[str] = None
+    duplicada_de: Optional[int] = None
 
 class NotaFiscalResponse(BaseModel):
     id: int
@@ -47,7 +49,8 @@ class NotaFiscalResponse(BaseModel):
     caminho_xml: Optional[str] = None
     caminho_pdf: Optional[str] = None
     caminho_xml_gerado: Optional[str] = None
-    status: str = 'NAO_PROCESSADA'
+    status: str = 'ENTRADA'
+    duplicada_de: Optional[int] = None
     observacoes: Optional[str] = None
     data_entrada: Optional[str] = None
 

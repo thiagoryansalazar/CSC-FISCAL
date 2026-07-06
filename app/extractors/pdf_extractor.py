@@ -32,10 +32,12 @@ def _extrair_dados_basicos(linhas: list, texto: str) -> dict:
     data_emissao = ''
     valor_total = 0.0
 
-    for linha in linhas:
+    for i, linha in enumerate(linhas):
         ls = linha.strip()
+        if not ls:
+            continue
 
-        m = re.search(r'NF[ea]\s*[Nn][[:ord:]]?\s*[.:]?\s*(\d+)', ls)
+        m = re.search(r'NF[ea]?\s*[Nn][°º]?\s*[.:]?\s*(\d+)', ls)
         if m and not numero:
             numero = m.group(1)
 
@@ -53,10 +55,66 @@ def _extrair_dados_basicos(linhas: list, texto: str) -> dict:
             if len(c) >= 44:
                 chave = c[:44]
 
+        if not nome:
+            m = re.search(
+                r'(?:RAZ[ÃA]O\s*SOCIAL|NOME\s*(?:DO\s*)?(?:FORNECEDOR|EMITENTE)?|FORNECEDOR|EMITENTE)\s*[:.]?\s*(.+)',
+                ls, re.IGNORECASE
+            )
+            if m:
+                nome = m.group(1).strip()
+            elif 'RS' == ls[:2] and len(ls) > 3:
+                nome = ls[2:].strip()
+
+        if not data_emissao:
+            m = re.search(
+                r'(?:DATA\s*(?:DA\s*)?EMISS[ÃA]O|EMISS[ÃA]O|D\.EMISS[ÃA]O)\s*[:.]?\s*(\d{2}/\d{2}/\d{4})',
+                ls, re.IGNORECASE
+            )
+            if m:
+                data_emissao = m.group(1)
+
+        if not valor_total:
+            m = re.search(
+                r'(?:VALOR\s*TOTAL|TOTAL\s*(?:DA\s*)?NOTA|V\.?TOTAL)\s*R?\$?\s*([\d\s.]+\,[\d]+)',
+                ls, re.IGNORECASE
+            )
+            if m:
+                valor_total = normalizar_valor(m.group(1))
+
+    if not chave:
+        for i, linha in enumerate(linhas):
+            ls = linha.strip()
+            if 'CHAVE' in ls.upper() and 'ACESSO' in ls.upper():
+                proxima = linhas[i + 1].strip() if i + 1 < len(linhas) else ''
+                if proxima:
+                    c = re.sub(r'\D', '', proxima)
+                    if len(c) >= 44:
+                        chave = c[:44]
+                        break
+
     if not cnpj:
         m = re.search(r'\b(\d{14})\b', texto)
         if m:
             cnpj = m.group(1)
+
+    if not nome:
+        for linha in linhas:
+            ls = linha.strip()
+            if ls and not re.match(r'^\d', ls) and len(ls) > 5:
+                nome = ls
+                break
+
+    if not data_emissao:
+        m = re.search(r'(\d{2}/\d{2}/\d{4})', texto)
+        if m:
+            data_emissao = normalizar_data(m.group(1))
+
+    if not valor_total:
+        m = re.search(r'R?\$?\s*([\d\s.]+\,[\d]+)', texto)
+        if m:
+            v = normalizar_valor(m.group(1))
+            if v > 0:
+                valor_total = v
 
     return {
         'chave_acesso': chave,
@@ -65,7 +123,7 @@ def _extrair_dados_basicos(linhas: list, texto: str) -> dict:
         'cnpj_emitente': cnpj,
         'cpf_emitente': None,
         'nome_fornecedor': nome,
-        'data_emissao': data_emissao,
+        'data_emissao': normalizar_data(data_emissao) if data_emissao else None,
         'valor_total': valor_total,
         'tipo_documento': 'NF-e',
         'origem': 'pdf',
